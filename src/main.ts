@@ -620,10 +620,10 @@ function createHeartMesh(): THREE.Mesh {
     return mesh;
 }
 
-type CenterMotif = 'infinity' | 'heart' | 'gem' | 'star';
+type CenterMotif = 'infinity' | 'heart' | 'gem' | 'star' | 'girl';
 
 // 中间三维图案：想换造型就改这里
-const CENTER_MOTIF: CenterMotif = 'star';
+const CENTER_MOTIF: CenterMotif = 'girl';
 
 function createStarMesh(): THREE.Mesh {
     // 3D 五角星：2D 轮廓 + 挤出，观感更“礼物感”
@@ -711,11 +711,337 @@ function createGemMesh(): THREE.Mesh {
     return mesh;
 }
 
-function createCenterMotifMesh(): THREE.Mesh {
-    if (CENTER_MOTIF === 'heart') return createHeartMesh();
-    if (CENTER_MOTIF === 'gem') return createGemMesh();
-    if (CENTER_MOTIF === 'star') return createStarMesh();
-    return createInfinityMesh();
+type ShyGirlRig = {
+    root: THREE.Group;
+    head: THREE.Object3D;
+    blushL: THREE.Mesh;
+    blushR: THREE.Mesh;
+};
+
+function createShyGirlRig(): ShyGirlRig {
+    const root = new THREE.Group();
+    root.name = 'shy-girl';
+
+    const skin = new THREE.MeshStandardMaterial({
+        // 肤色提亮、减少粉色自发光：避免和腮红/粉色元素糊在一起
+        color: new THREE.Color('#fff1e6'),
+        emissive: new THREE.Color('#ffd6f2'),
+        emissiveIntensity: 0.02,
+        metalness: 0.0,
+        roughness: 0.85,
+    });
+
+    // 非黑色描边：让脸部轮廓更清楚
+    const faceOutlineMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffd6a6'),
+        emissive: new THREE.Color('#ffd6a6'),
+        emissiveIntensity: 0.02,
+        metalness: 0.0,
+        roughness: 0.95,
+        side: THREE.BackSide,
+    });
+    // 头发别太黑：否则会和深色背景糊在一起。这里复用现有的薰衣草色系。
+    const hair = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#cbbcff'),
+        emissive: new THREE.Color('#cbbcff'),
+        emissiveIntensity: 0.03,
+        metalness: 0.0,
+        roughness: 0.9,
+    });
+    const sweater = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffd6a6'),
+        emissive: new THREE.Color('#ffd6a6'),
+        emissiveIntensity: 0.05,
+        metalness: 0.0,
+        roughness: 0.85,
+    });
+    // 不使用黑色：用更丰富的莓果粉做下装，整体更“甜”
+    const skirtMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ff4fb1'),
+        emissive: new THREE.Color('#ff2a9d'),
+        emissiveIntensity: 0.07,
+        metalness: 0.02,
+        roughness: 0.7,
+    });
+    const tightsMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#cbbcff'),
+        emissive: new THREE.Color('#cbbcff'),
+        emissiveIntensity: 0.03,
+        metalness: 0.0,
+        roughness: 0.9,
+    });
+    const eyeIrisMat = new THREE.MeshStandardMaterial({
+        // 眼睛用“更浅的蓝”，避免与脸部粉紫混色
+        color: new THREE.Color('#a9e8ff'),
+        emissive: new THREE.Color('#a9e8ff'),
+        emissiveIntensity: 0.05,
+        metalness: 0.0,
+        roughness: 0.45,
+    });
+    const pupilMat = new THREE.MeshStandardMaterial({
+        // 瞳孔用“更深一点的蓝”，不再用粉色
+        color: new THREE.Color('#77d6ff'),
+        emissive: new THREE.Color('#77d6ff'),
+        emissiveIntensity: 0.03,
+        metalness: 0.0,
+        roughness: 0.5,
+    });
+    const blushMat = new THREE.MeshBasicMaterial({
+        // 腮红改为更暖的香槟桃色：脸部不再一片紫粉
+        color: new THREE.Color('#ffd6a6'),
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+    });
+
+    const eyeWhiteMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        opacity: 0.92,
+        depthWrite: false,
+    });
+
+    const browMat = new THREE.MeshStandardMaterial({
+        // 不用黑色：用暖焦糖色做眉毛，脸部层次更清晰
+        color: new THREE.Color('#d8a17d'),
+        emissive: new THREE.Color('#d8a17d'),
+        emissiveIntensity: 0.01,
+        metalness: 0.0,
+        roughness: 0.6,
+    });
+    const glassesMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#a9e8ff'),
+        emissive: new THREE.Color('#77d6ff'),
+        emissiveIntensity: 0.2,
+        metalness: 0.1,
+        roughness: 0.25,
+    });
+    const lensMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#a9e8ff'),
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+    });
+
+    const girl = new THREE.Group();
+    root.add(girl);
+
+    // Body
+    const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.22, 0.36, 6, 12),
+        sweater
+    );
+    body.position.set(0, 0.42, 0);
+    girl.add(body);
+
+    const skirt = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.28, 0.18, 20),
+        skirtMat
+    );
+    skirt.position.set(0, 0.18, 0);
+    girl.add(skirt);
+
+    // Legs
+    const legGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.22, 14);
+    const legL = new THREE.Mesh(legGeo, tightsMat);
+    const legR = new THREE.Mesh(legGeo, tightsMat);
+    legL.position.set(-0.11, 0.02, 0);
+    legR.position.set(0.11, 0.02, 0);
+    girl.add(legL, legR);
+
+    // Arms (slightly inward = shy)
+    const armGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.32, 14);
+    const armL = new THREE.Mesh(armGeo, sweater);
+    const armR = new THREE.Mesh(armGeo, sweater);
+    armL.position.set(-0.25, 0.52, 0.05);
+    armR.position.set(0.25, 0.52, 0.05);
+    armL.rotation.z = Math.PI * 0.18;
+    armR.rotation.z = -Math.PI * 0.18;
+    armL.rotation.x = -Math.PI * 0.06;
+    armR.rotation.x = -Math.PI * 0.06;
+    girl.add(armL, armR);
+
+    // Head + hair
+    const head = new THREE.Group();
+    head.position.set(0, 0.98, 0);
+    head.rotation.z = -Math.PI * 0.035;
+    girl.add(head);
+
+    const faceGeo = new THREE.SphereGeometry(0.34, 28, 22);
+    const face = new THREE.Mesh(faceGeo, skin);
+    face.scale.set(1, 1.04, 1);
+    head.add(face);
+
+    const faceOutline = new THREE.Mesh(faceGeo, faceOutlineMat);
+    faceOutline.scale.copy(face.scale).multiplyScalar(1.035);
+    head.add(faceOutline);
+
+    const hairCap = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            0.355,
+            28,
+            22,
+            0,
+            Math.PI * 2,
+            0,
+            Math.PI * 0.72
+        ),
+        hair
+    );
+    hairCap.position.set(0, 0.02, 0);
+    head.add(hairCap);
+
+    const bangs = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.22), hair);
+    bangs.position.set(0, 0.11, 0.26);
+    bangs.rotation.x = -Math.PI * 0.12;
+    head.add(bangs);
+
+    // 更多头发：后发 + 两侧发束 + 小小马尾，让轮廓更清晰
+    const hairBack = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.16, 0.42, 6, 12),
+        hair
+    );
+    hairBack.position.set(0, -0.18, -0.14);
+    hairBack.rotation.x = Math.PI * 0.08;
+    head.add(hairBack);
+
+    const sideLockGeo = new THREE.CapsuleGeometry(0.06, 0.26, 6, 10);
+    const sideLockL = new THREE.Mesh(sideLockGeo, hair);
+    const sideLockR = new THREE.Mesh(sideLockGeo, hair);
+    sideLockL.position.set(-0.28, -0.08, 0.14);
+    sideLockR.position.set(0.28, -0.08, 0.14);
+    sideLockL.rotation.z = Math.PI * 0.12;
+    sideLockR.rotation.z = -Math.PI * 0.12;
+    sideLockL.rotation.x = -Math.PI * 0.08;
+    sideLockR.rotation.x = -Math.PI * 0.08;
+    head.add(sideLockL, sideLockR);
+
+    const pony = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), hair);
+    pony.position.set(0.22, -0.26, -0.28);
+    head.add(pony);
+
+    // Eyes
+    const eyeWhiteGeo = new THREE.SphereGeometry(0.048, 12, 10);
+    const eyeWhiteL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    const eyeWhiteR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    eyeWhiteL.position.set(-0.11, 0.03, 0.3);
+    eyeWhiteR.position.set(0.11, 0.03, 0.3);
+    head.add(eyeWhiteL, eyeWhiteR);
+
+    const eyeGeo = new THREE.SphereGeometry(0.034, 10, 8);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeIrisMat);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeIrisMat);
+    eyeL.position.set(-0.11, 0.03, 0.315);
+    eyeR.position.set(0.11, 0.03, 0.315);
+    head.add(eyeL, eyeR);
+
+    const pupilGeo = new THREE.SphereGeometry(0.018, 10, 8);
+    const pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+    const pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilL.position.set(-0.11, 0.02, 0.335);
+    pupilR.position.set(0.11, 0.02, 0.335);
+    head.add(pupilL, pupilR);
+
+    const highlightGeo = new THREE.SphereGeometry(0.01, 10, 8);
+    const highlightL = new THREE.Mesh(highlightGeo, eyeWhiteMat);
+    const highlightR = new THREE.Mesh(highlightGeo, eyeWhiteMat);
+    highlightL.position.set(-0.125, 0.04, 0.345);
+    highlightR.position.set(0.095, 0.04, 0.345);
+    (highlightL.material as THREE.MeshBasicMaterial).opacity = 0.9;
+    (highlightR.material as THREE.MeshBasicMaterial).opacity = 0.9;
+    head.add(highlightL, highlightR);
+
+    // Blush
+    const blushGeo = new THREE.CircleGeometry(0.078, 18);
+    const blushL = new THREE.Mesh(blushGeo, blushMat);
+    const blushR = new THREE.Mesh(blushGeo, blushMat);
+    blushL.position.set(-0.18, -0.06, 0.315);
+    blushR.position.set(0.18, -0.06, 0.315);
+    head.add(blushL, blushR);
+
+    // Eyebrows (soft)
+    const browGeo = new THREE.BoxGeometry(0.09, 0.02, 0.02);
+    const browL = new THREE.Mesh(browGeo, browMat);
+    const browR = new THREE.Mesh(browGeo, browMat);
+    browL.position.set(-0.11, 0.1, 0.3);
+    browR.position.set(0.11, 0.1, 0.3);
+    browL.rotation.z = -Math.PI * 0.06;
+    browR.rotation.z = Math.PI * 0.06;
+    head.add(browL, browR);
+
+    // Nose (tiny)
+    const nose = new THREE.Mesh(
+        new THREE.SphereGeometry(0.018, 12, 10),
+        blushMat
+    );
+    nose.position.set(0, -0.04, 0.33);
+    (nose.material as THREE.MeshBasicMaterial).opacity = 0.16;
+    head.add(nose);
+
+    // Mouth (tiny shy smile)
+    const mouth = new THREE.Mesh(
+        new THREE.TorusGeometry(0.04, 0.008, 10, 24, Math.PI),
+        blushMat
+    );
+    mouth.position.set(0, -0.12, 0.315);
+    mouth.rotation.z = Math.PI;
+    (mouth.material as THREE.MeshBasicMaterial).opacity = 0.26;
+    head.add(mouth);
+
+    // Glasses (round)
+    const glasses = new THREE.Group();
+    glasses.position.set(0, 0.04, 0.325);
+    head.add(glasses);
+
+    const frameGeo = new THREE.TorusGeometry(0.135, 0.012, 12, 24);
+    const lensGeo = new THREE.CircleGeometry(0.125, 24);
+
+    const frameL = new THREE.Mesh(frameGeo, glassesMat);
+    const frameR = new THREE.Mesh(frameGeo, glassesMat);
+    frameL.position.set(-0.165, 0, 0);
+    frameR.position.set(0.165, 0, 0);
+    glasses.add(frameL, frameR);
+
+    const lensL = new THREE.Mesh(lensGeo, lensMat);
+    const lensR = new THREE.Mesh(lensGeo, lensMat);
+    lensL.position.set(-0.165, 0, 0.002);
+    lensR.position.set(0.165, 0, 0.002);
+    glasses.add(lensL, lensR);
+
+    const bridge = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.01, 0.01, 0.07, 12),
+        glassesMat
+    );
+    bridge.rotation.z = Math.PI * 0.5;
+    bridge.position.set(0, 0, 0);
+    glasses.add(bridge);
+
+    // Overall vibe: slightly closer
+    girl.rotation.x = Math.PI * 0.02;
+    girl.position.set(0, 0.0, 0.18);
+    girl.scale.setScalar(0.95);
+
+    // 初始位置：保持与中心图案大致一致；具体会在 applyLayout() 里按屏幕再微调
+    root.position.set(0, 1.12, 0);
+
+    return { root, head, blushL, blushR };
+}
+
+function createCenterMotifObject(): {
+    object: THREE.Object3D;
+    shyGirl: ShyGirlRig | null;
+} {
+    if (CENTER_MOTIF === 'girl') {
+        const shyGirl = createShyGirlRig();
+        return { object: shyGirl.root, shyGirl };
+    }
+    if (CENTER_MOTIF === 'heart')
+        return { object: createHeartMesh(), shyGirl: null };
+    if (CENTER_MOTIF === 'gem')
+        return { object: createGemMesh(), shyGirl: null };
+    if (CENTER_MOTIF === 'star')
+        return { object: createStarMesh(), shyGirl: null };
+    return { object: createInfinityMesh(), shyGirl: null };
 }
 
 function createStarField(count: number): THREE.Points {
@@ -1459,11 +1785,38 @@ function main(): void {
     scene.add(stars);
 
     // Center motif
-    const motif = createCenterMotifMesh();
+    const motifBuilt = createCenterMotifObject();
+    const motif = motifBuilt.object;
+    const shyGirl = motifBuilt.shyGirl;
     scene.add(motif);
 
-    const motifMaterial = motif.material as THREE.MeshStandardMaterial;
-    const motifEmissiveBase = motifMaterial.emissiveIntensity;
+    function collectEmissiveMaterials(
+        root: THREE.Object3D
+    ): THREE.MeshStandardMaterial[] {
+        const out: THREE.MeshStandardMaterial[] = [];
+        root.traverse((o) => {
+            const mesh = o as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            const mats = Array.isArray(mesh.material)
+                ? mesh.material
+                : [mesh.material];
+            for (const m of mats) {
+                if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+                    out.push(m as THREE.MeshStandardMaterial);
+                }
+            }
+        });
+        return out;
+    }
+
+    const motifEmissiveMats = collectEmissiveMaterials(motif);
+    const motifEmissiveBase = motifEmissiveMats.map((m) => m.emissiveIntensity);
+    function setMotifEmissiveMultiplier(mult: number): void {
+        for (let i = 0; i < motifEmissiveMats.length; i++) {
+            motifEmissiveMats[i].emissiveIntensity =
+                motifEmissiveBase[i] * mult;
+        }
+    }
 
     // Halo ring
     const ring = new THREE.Mesh(
@@ -1543,10 +1896,36 @@ function main(): void {
         layoutWishY = portrait ? 1.82 : base.wishY;
         layoutSubY = portrait ? 1.48 : base.subY;
 
+        // 女孩作为中心主体时：把三行祝福整体上移，确保不压在女孩头部上
+        if (shyGirl) {
+            const wishLift = portrait ? 0.42 : 0.32;
+            const titleLift = portrait ? 0.2 : 0.14;
+            layoutTitleY += titleLift;
+            layoutWishY += wishLift;
+            layoutSubY += wishLift * 0.9;
+        }
+
+        // 避免三行文字上下浮动时互相重叠：拉开基础间距
+        if (isMobile || portrait) {
+            const extraTitleGap = portrait ? 0.07 : 0.05;
+            const extraWishGap = portrait ? 0.03 : 0.02;
+            const extraSubDrop = portrait ? 0.07 : 0.055;
+            layoutTitleY += extraTitleGap;
+            layoutWishY += extraWishGap;
+            layoutSubY -= extraSubDrop;
+        }
+
         // 主体在手机上略微收一点，避免贴边
         layoutMotifScale = portrait
             ? base.motifBaseScale * 0.96
             : base.motifBaseScale;
+
+        // 若中心是女孩：再收一点点并下移，避免与祝福文字重叠
+        const motifYOffset = shyGirl ? (portrait ? -0.86 : -0.74) : 0.0;
+        const motifScaleMult = shyGirl ? (portrait ? 0.92 : 0.94) : 1.0;
+        motif.position.y = 1.12 + motifYOffset;
+        ring.position.y = motif.position.y - 0.09;
+        layoutMotifScale *= motifScaleMult;
 
         // 同步一次位置（浮动动画会在 frame() 里叠加）
         titleSprite.position.y = layoutTitleY;
@@ -1863,7 +2242,7 @@ function main(): void {
                 controls.setAutoSpin(false);
 
                 // 轻微高亮，告诉用户“抓住了”
-                motifMaterial.emissiveIntensity = motifEmissiveBase * 1.25;
+                setMotifEmissiveMultiplier(1.25);
 
                 suppressTapPointerId = e.pointerId;
                 tap.moved = true;
@@ -1942,7 +2321,7 @@ function main(): void {
                 motifDrag.pointerId = null;
                 controls.unblockPointer(e.pointerId);
                 suppressTapPointerId = null;
-                motifMaterial.emissiveIntensity = motifEmissiveBase;
+                setMotifEmissiveMultiplier(1.0);
                 controls.setAutoSpin(true);
                 tap.pointerId = null;
                 return;
@@ -1987,7 +2366,7 @@ function main(): void {
                 motifDrag.pointerId = null;
                 controls.unblockPointer(e.pointerId);
                 suppressTapPointerId = null;
-                motifMaterial.emissiveIntensity = motifEmissiveBase;
+                setMotifEmissiveMultiplier(1.0);
                 controls.setAutoSpin(true);
             }
             if (tap.pointerId === null || e.pointerId !== tap.pointerId) return;
@@ -2074,14 +2453,44 @@ function main(): void {
         // Heart breathing + gentle spin
         const pulse = 1.0 + Math.sin(t * 2.1) * 0.03;
         motif.scale.setScalar(layoutMotifScale * pulse);
-        motif.rotation.y += dt * 0.22;
+        if (shyGirl) {
+            // 女孩不要一直自转，否则会背对镜头导致“看不清”
+            if (!motifDrag.active) {
+                const faceFollow = 1.0 - Math.exp(-dt * 2.8);
+                motif.rotation.y = lerp(motif.rotation.y, 0.0, faceFollow);
+            }
+        } else {
+            motif.rotation.y += dt * 0.22;
+        }
+
+        // 女孩模式稍微提亮主体，增加与背景对比
+        if (shyGirl) {
+            key.intensity = 1.18;
+            fill.intensity = 1.05;
+        } else {
+            key.intensity = 1.05;
+            fill.intensity = 0.9;
+        }
+
+        // 如果当前中心图案是女孩：轻微点头 + 腮红呼吸
+        if (shyGirl) {
+            shyGirl.head.rotation.x = Math.sin(t * 0.85 + 1.1) * 0.04;
+            shyGirl.head.rotation.y = Math.sin(t * 0.6 + 0.4) * 0.06;
+            const blush = 0.16 + 0.06 * (0.5 + 0.5 * Math.sin(t * 1.25 + 0.2));
+            (shyGirl.blushL.material as THREE.MeshBasicMaterial).opacity =
+                blush;
+            (shyGirl.blushR.material as THREE.MeshBasicMaterial).opacity =
+                blush;
+        }
         ring.rotation.z += dt * 0.35;
         ring.material.opacity = 0.45 + 0.18 * (0.5 + 0.5 * Math.sin(t * 1.35));
 
         // Text float
-        titleSprite.position.y = layoutTitleY + Math.sin(t * 0.9) * 0.04;
-        wishSprite.position.y = layoutWishY + Math.sin(t * 1.1 + 1.2) * 0.035;
-        subSprite.position.y = layoutSubY + Math.sin(t * 1.15 + 2.4) * 0.03;
+        // 同频轻浮动：保证三行相对间距恒定，不会“飘着飘着叠在一起”
+        const textBob = Math.sin(t * 0.95) * (isMobile ? 0.022 : 0.03);
+        titleSprite.position.y = layoutTitleY + textBob;
+        wishSprite.position.y = layoutWishY + textBob;
+        subSprite.position.y = layoutSubY + textBob;
 
         // 更新烟花文字的安全显示区域：保证在中间祝福语上方且不顶到标题
         updateNoteBand();
