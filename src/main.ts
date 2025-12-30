@@ -1567,12 +1567,64 @@ function main(): void {
     // Floating love notes（仅在你主动放烟花时出现）
     type FloatingNote = {
         sprite: THREE.Sprite;
-        velocity: THREE.Vector3;
+        ndcY: number;
+        targetNdcY: number;
+        ndcVelY: number;
+        ndcZ: number;
         age: number;
         duration: number;
         baseScale: THREE.Vector3;
     };
     const floatingNotes: FloatingNote[] = [];
+
+    // 屏幕空间队列：固定 X，Y 只往上加（视觉上就是垂直往上）
+    const NOTE_MARGIN = 0.08;
+    // 让烟花文字稳定落在「中间祝福语上方」且不与上方标题重叠：动态计算 band
+    let noteMinY = -0.06;
+    let noteMaxY = 0.55;
+    function updateNoteBand(): void {
+        const wishY = wishSprite.position.clone().project(camera).y;
+        const titleY = titleSprite.position.clone().project(camera).y;
+
+        // NDC: y 越大越靠上。让烟花文字处于 wish 上方、title 下方。
+        const padding = isMobile ? 0.14 : 0.12;
+        let minY = wishY + padding;
+        let maxY = titleY - padding;
+
+        // 兜底：如果空间太窄，至少保证在 wish 上方的一小段区域
+        if (!Number.isFinite(minY)) minY = -0.06;
+        if (!Number.isFinite(maxY)) maxY = 0.55;
+        if (maxY - minY < 0.18) {
+            minY = wishY + 0.06;
+            maxY = Math.min(0.78, minY + 0.28);
+        }
+
+        noteMinY = clamp(minY, -0.65, 0.72);
+        noteMaxY = clamp(maxY, noteMinY + 0.12, 0.85);
+    }
+
+    function getNoteNdcZ(): number {
+        // 取一个稳定的“场景中间深度”，保证 unproject 不会跑偏
+        const p = new THREE.Vector3(0, 1.6, 0).project(camera);
+        return Number.isFinite(p.z) ? p.z : 0.2;
+    }
+
+    function applyNoteNdc(
+        sprite: THREE.Sprite,
+        ndcY: number,
+        ndcZ: number
+    ): void {
+        const y = ndcY;
+        const z = Number.isFinite(ndcZ) ? ndcZ : 0.2;
+        sprite.position.copy(new THREE.Vector3(0, y, z).unproject(camera));
+    }
+
+    function shiftExistingNotesUp(ndcDeltaY: number): void {
+        for (const n of floatingNotes) {
+            n.targetNdcY += ndcDeltaY;
+        }
+    }
+
     function spawnFloatingNote(world: THREE.Vector3, text: string): void {
         if (floatingNotes.length >= MAX_FLOATING_NOTES) {
             const old = floatingNotes.shift();
@@ -1604,22 +1656,33 @@ function main(): void {
         const mat = sprite.material as THREE.SpriteMaterial;
         mat.opacity = 0.0;
 
+        // 浮动祝福：手机端更小一点，避免挡画面
         const baseScale = sprite.scale
             .clone()
-            .multiplyScalar(isMobile ? 0.62 : 0.7);
+            .multiplyScalar(isMobile ? 0.4 : 0.6);
         sprite.scale.copy(baseScale);
+
+        // 队列排队：旧的往上挪一点，新的一条从固定位置出现（居中、只往上飘）
+        const queueGap = isMobile ? 0.13 : 0.11; // NDC gap
+        shiftExistingNotesUp(queueGap);
+
+        const ndcZ = getNoteNdcZ();
+        // 固定在「中间祝福语」上方
+        const spawnNdcY = noteMinY + (isMobile ? 0.05 : 0.04);
+        applyNoteNdc(sprite, spawnNdcY, ndcZ);
 
         scene.add(sprite);
 
         floatingNotes.push({
             sprite,
-            velocity: new THREE.Vector3(
-                rand(-0.08, 0.08),
-                rand(0.45, 0.7),
-                rand(-0.08, 0.08)
-            ),
+            ndcY: spawnNdcY,
+            targetNdcY: spawnNdcY,
+            // 视觉垂直上飘：用 NDC 的 y 速度
+            ndcVelY: rand(0.07, 0.1),
+            ndcZ,
             age: 0,
-            duration: rand(1.35, 1.75),
+            // 停留更久一些，不要太快消失
+            duration: rand(3.8, 4.8),
             baseScale,
         });
     }
@@ -2020,6 +2083,9 @@ function main(): void {
         wishSprite.position.y = layoutWishY + Math.sin(t * 1.1 + 1.2) * 0.035;
         subSprite.position.y = layoutSubY + Math.sin(t * 1.15 + 2.4) * 0.03;
 
+        // 更新烟花文字的安全显示区域：保证在中间祝福语上方且不顶到标题
+        updateNoteBand();
+
         // Stars slow drift
         stars.rotation.y += dt * 0.02;
         stars.rotation.x = Math.sin(t * 0.05) * 0.03;
@@ -2042,12 +2108,21 @@ function main(): void {
             n.age += dt;
             const tt = clamp(n.age / n.duration, 0, 1);
 
-            n.sprite.position.addScaledVector(n.velocity, dt);
-            // 轻微摆动，让字更“活”
-            n.sprite.position.x += Math.sin(t * 2.4 + i * 1.3) * dt * 0.04;
+            // 屏幕空间垂直上飘：只改 ndcY
+            n.targetNdcY += n.ndcVelY * dt;
+            // 逐步减速：更像“缓缓上浮”
+            n.ndcVelY *= Math.max(0.0, 1.0 - dt * 0.25);
+
+            // band 约束放在 target 上，避免硬夹紧导致“突变”
+            n.targetNdcY = clamp(n.targetNdcY, noteMinY, noteMaxY);
+
+            // 平滑趋近目标（队列上移/带宽变化时不会瞬移）
+            const follow = 1.0 - Math.exp(-dt * 12.0);
+            n.ndcY = lerp(n.ndcY, n.targetNdcY, follow);
+            applyNoteNdc(n.sprite, n.ndcY, n.ndcZ);
 
             const fadeIn = smoothstep(0.0, 0.12, tt);
-            const fadeOut = 1.0 - smoothstep(0.65, 1.0, tt);
+            const fadeOut = 1.0 - smoothstep(0.82, 1.0, tt);
             (n.sprite.material as THREE.SpriteMaterial).opacity =
                 fadeIn * fadeOut;
 
