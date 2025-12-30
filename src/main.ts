@@ -5,6 +5,23 @@ const GIRL_NAME = '她';
 const YEAR_FROM = 2025;
 const YEAR_TO = 2026;
 
+// 每次“你主动放的烟花”绽放时，会浮现一句小夸夸/小祝福（更有陪伴感）
+const LOVE_NOTES = [
+    '愿你新的一年，被温柔稳稳接住',
+    '你值得所有偏爱与例外',
+    '把闪闪发光当作日常',
+    '愿你心里有光，脚下有路',
+    '愿你永远可爱，也永远被爱',
+    '把烦恼交给风，把快乐留给你',
+    '愿你所求皆如愿，所行皆坦途',
+    '愿你被世界温柔以待',
+    '愿你自信、自由、且丰盛',
+    '你很好，真的很好',
+    '愿你今晚做个甜甜的梦',
+    '新年快乐，愿你平安喜乐',
+];
+const MAX_FLOATING_NOTES = 8;
+
 // 背景音乐（可填入联网音频直链，比如 mp3/m4a/ogg）。留空则不启用。
 // 注意：移动端浏览器通常要求“用户手势”才能开始播放，这里会在第一次成功“双击放烟花”时尝试播放。
 const MUSIC_URL = '';
@@ -36,6 +53,10 @@ function rand(min: number, max: number): number {
 
 function randInt(min: number, max: number): number {
     return Math.floor(rand(min, max + 1));
+}
+
+function pickOne<T>(items: readonly T[]): T {
+    return items[randInt(0, Math.max(0, items.length - 1))];
 }
 
 type FireworkPattern = 'sphere' | 'heart' | 'ring';
@@ -216,11 +237,11 @@ function setupOverlay(): void {
         // 有音乐时提示一下（不额外加按钮，靠双击手势触发播放）
         hint.textContent = isTouchDevice()
             ? MUSIC_URL.trim().length > 0
-                ? '拖动旋转视角 · 拖拽中心图案 · 双指缩放 · 双击放烟花（开启音乐）'
-                : '拖动旋转视角 · 拖拽中心图案 · 双指缩放 · 双击放烟花'
+                ? '拖动旋转视角 · 拖拽中心图案 · 双指缩放 · 双击放烟花（小祝福·开启音乐）'
+                : '拖动旋转视角 · 拖拽中心图案 · 双指缩放 · 双击放烟花（小祝福）'
             : MUSIC_URL.trim().length > 0
-            ? '拖动旋转视角 · 拖拽中心图案 · 滚轮缩放 · 双击放烟花（开启音乐）'
-            : '拖动旋转视角 · 拖拽中心图案 · 滚轮缩放 · 双击放烟花';
+            ? '拖动旋转视角 · 拖拽中心图案 · 滚轮缩放 · 双击放烟花（小祝福·开启音乐）'
+            : '拖动旋转视角 · 拖拽中心图案 · 滚轮缩放 · 双击放烟花（小祝福）';
 }
 
 class TouchOrbitControls implements Disposable {
@@ -1127,6 +1148,7 @@ type Rocket = {
     end: THREE.Vector3;
     intensity: number;
     pattern: FireworkPattern;
+    userTriggered: boolean;
 };
 
 class FireworkRockets implements Disposable {
@@ -1134,17 +1156,35 @@ class FireworkRockets implements Disposable {
     private readonly fireworks: Fireworks;
     private readonly rockets: Rocket[] = [];
     private readonly maxRockets: number;
+    private readonly onBurst?: (
+        world: THREE.Vector3,
+        pattern: FireworkPattern,
+        intensity: number,
+        userTriggered: boolean
+    ) => void;
 
-    constructor(scene: THREE.Scene, fireworks: Fireworks, maxRockets = 6) {
+    constructor(
+        scene: THREE.Scene,
+        fireworks: Fireworks,
+        maxRockets = 6,
+        onBurst?: (
+            world: THREE.Vector3,
+            pattern: FireworkPattern,
+            intensity: number,
+            userTriggered: boolean
+        ) => void
+    ) {
         this.scene = scene;
         this.fireworks = fireworks;
         this.maxRockets = maxRockets;
+        this.onBurst = onBurst;
     }
 
     launch(
         targetXZ: THREE.Vector3,
         intensity = 1.0,
-        pattern: FireworkPattern = 'sphere'
+        pattern: FireworkPattern = 'sphere',
+        userTriggered = false
     ): void {
         if (this.rockets.length >= this.maxRockets) {
             const old = this.rockets.shift();
@@ -1220,6 +1260,7 @@ class FireworkRockets implements Disposable {
             end,
             intensity,
             pattern,
+            userTriggered,
         });
     }
 
@@ -1282,6 +1323,12 @@ class FireworkRockets implements Disposable {
 
             if (r.age >= r.duration) {
                 // 顶点绽放
+                this.onBurst?.(
+                    r.end.clone(),
+                    r.pattern,
+                    r.intensity,
+                    r.userTriggered
+                );
                 this.fireworks.spawn(r.end, r.intensity, r.pattern);
                 this.remove(r);
                 this.rockets.splice(i, 1);
@@ -1517,8 +1564,86 @@ function main(): void {
         particlesPerBurst: isMobile ? 520 : 720,
     });
 
+    // Floating love notes（仅在你主动放烟花时出现）
+    type FloatingNote = {
+        sprite: THREE.Sprite;
+        velocity: THREE.Vector3;
+        age: number;
+        duration: number;
+        baseScale: THREE.Vector3;
+    };
+    const floatingNotes: FloatingNote[] = [];
+    function spawnFloatingNote(world: THREE.Vector3, text: string): void {
+        if (floatingNotes.length >= MAX_FLOATING_NOTES) {
+            const old = floatingNotes.shift();
+            if (old) {
+                scene.remove(old.sprite);
+                const mat = old.sprite.material as THREE.SpriteMaterial;
+                mat.map?.dispose();
+                mat.dispose();
+            }
+        }
+
+        const sprite = createTextSprite(text, {
+            fontSize: isMobile ? 56 : 64,
+            glowColor: 'rgba(255, 110, 200, 0.85)',
+            color: 'rgba(255,255,255,0.96)',
+            maxWidth: isMobile ? 980 : 1200,
+        });
+        sprite.position
+            .copy(world)
+            .add(
+                new THREE.Vector3(
+                    rand(-0.25, 0.25),
+                    rand(0.35, 0.55),
+                    rand(-0.25, 0.25)
+                )
+            );
+        sprite.renderOrder = 1100;
+
+        const mat = sprite.material as THREE.SpriteMaterial;
+        mat.opacity = 0.0;
+
+        const baseScale = sprite.scale
+            .clone()
+            .multiplyScalar(isMobile ? 0.62 : 0.7);
+        sprite.scale.copy(baseScale);
+
+        scene.add(sprite);
+
+        floatingNotes.push({
+            sprite,
+            velocity: new THREE.Vector3(
+                rand(-0.08, 0.08),
+                rand(0.45, 0.7),
+                rand(-0.08, 0.08)
+            ),
+            age: 0,
+            duration: rand(1.35, 1.75),
+            baseScale,
+        });
+    }
+
     // Rockets: lift-off -> burst
-    const rockets = new FireworkRockets(scene, fireworks, isMobile ? 5 : 7);
+    const rockets = new FireworkRockets(
+        scene,
+        fireworks,
+        isMobile ? 5 : 7,
+        (world, _pattern, _intensity, userTriggered) => {
+            if (!userTriggered) return;
+
+            // 轻微震动（若系统允许），增强“触感”但不打扰
+            if (isMobile && 'vibrate' in navigator) {
+                try {
+                    (navigator as any).vibrate?.(14);
+                } catch {
+                    // ignore
+                }
+            }
+
+            spawnFloatingNote(world, pickOne(LOVE_NOTES));
+        }
+    );
 
     // Angle phrases: rotate to reveal different lines
     const phraseRing = new AnglePhraseRing({
@@ -1605,7 +1730,8 @@ function main(): void {
         rockets.launch(
             new THREE.Vector3(origin.x, 0, origin.z),
             1.0,
-            chooseFireworkPattern(true)
+            chooseFireworkPattern(true),
+            true
         );
     }
 
@@ -1835,7 +1961,8 @@ function main(): void {
         rockets.launch(
             new THREE.Vector3(origin.x, 0, origin.z),
             rand(0.85, 1.15),
-            chooseFireworkPattern(false)
+            chooseFireworkPattern(false),
+            false
         );
     }
     for (let i = 0; i < 3; i++) spawnAuto();
@@ -1908,6 +2035,33 @@ function main(): void {
             spawnAuto();
         }
         fireworks.update(dt);
+
+        // Floating notes
+        for (let i = floatingNotes.length - 1; i >= 0; i--) {
+            const n = floatingNotes[i];
+            n.age += dt;
+            const tt = clamp(n.age / n.duration, 0, 1);
+
+            n.sprite.position.addScaledVector(n.velocity, dt);
+            // 轻微摆动，让字更“活”
+            n.sprite.position.x += Math.sin(t * 2.4 + i * 1.3) * dt * 0.04;
+
+            const fadeIn = smoothstep(0.0, 0.12, tt);
+            const fadeOut = 1.0 - smoothstep(0.65, 1.0, tt);
+            (n.sprite.material as THREE.SpriteMaterial).opacity =
+                fadeIn * fadeOut;
+
+            const pop = 0.92 + 0.16 * easeOutCubic(Math.min(1, tt * 2.0));
+            n.sprite.scale.copy(n.baseScale).multiplyScalar(pop);
+
+            if (tt >= 1) {
+                scene.remove(n.sprite);
+                const mat = n.sprite.material as THREE.SpriteMaterial;
+                mat.map?.dispose();
+                mat.dispose();
+                floatingNotes.splice(i, 1);
+            }
+        }
 
         // Ripples
         for (let i = ripples.length - 1; i >= 0; i--) {
