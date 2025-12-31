@@ -58,15 +58,215 @@
                 font-size: 12px;
                 opacity: 0.8;
                 line-height: 1.35;
-                padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+                padding-bottom: 8px;
+            }
+
+            #buttons-container {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+                pointer-events: auto;
+            }
+
+            .action-btn {
+                padding: 14px 28px;
+                font-size: 16px;
+                font-weight: 600;
+                border: none;
+                border-radius: 50px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-family: inherit;
+                letter-spacing: 1px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .action-btn::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                border-radius: 50px;
+                padding: 2px;
+                background: linear-gradient(135deg, #ff6fb7, #77d6ff, #cbbcff);
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            #btn-goto-2026 {
+                background: #2a2a3a;
+                color: rgba(255, 255, 255, 0.5);
+                cursor: not-allowed;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                position: relative;
+                overflow: hidden;
+            }
+
+            #btn-goto-2026 .progress-fill {
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100%;
+                width: 0%;
+                background: linear-gradient(90deg, #ff6fb7 0%, #ff4fb1 50%, #cbbcff 100%);
+                transition: width 0.3s ease;
+                z-index: 0;
+            }
+
+            #btn-goto-2026 .btn-text {
+                position: relative;
+                z-index: 1;
+            }
+
+            #btn-goto-2026.active .progress-fill {
+                width: 100% !important;
+            }
+
+            #btn-goto-2026.active {
+                background: linear-gradient(135deg, #ff6fb7 0%, #ff4fb1 50%, #cbbcff 100%);
+                color: #fff;
+                cursor: pointer;
+                box-shadow: 0 4px 25px rgba(255, 111, 183, 0.5), 0 0 40px rgba(255, 79, 177, 0.3);
+                animation: glow-pulse 2s ease-in-out infinite;
+            }
+
+            #btn-goto-2026.active::before {
+                opacity: 1;
+            }
+
+            #btn-goto-2026.active:hover {
+                transform: scale(1.05);
+                box-shadow: 0 6px 35px rgba(255, 111, 183, 0.6), 0 0 50px rgba(255, 79, 177, 0.4);
+            }
+
+            #btn-firework {
+                background: linear-gradient(135deg, #77d6ff 0%, #a9e8ff 50%, #cbbcff 100%);
+                color: #1a1a2e;
+                box-shadow: 0 4px 20px rgba(119, 214, 255, 0.4), 0 0 30px rgba(169, 232, 255, 0.2);
+            }
+
+            #btn-firework:hover {
+                transform: scale(1.05);
+                box-shadow: 0 6px 30px rgba(119, 214, 255, 0.6), 0 0 45px rgba(169, 232, 255, 0.3);
+            }
+
+            #btn-firework:active {
+                transform: scale(0.98);
+            }
+
+            #firework-counter {
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background: linear-gradient(135deg, #ff6fb7, #ff4fb1);
+                color: #fff;
+                font-size: 12px;
+                font-weight: 700;
+                min-width: 24px;
+                height: 24px;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(255, 79, 177, 0.5);
+            }
+
+            @keyframes glow-pulse {
+                0%, 100% {
+                    box-shadow: 0 4px 25px rgba(255, 111, 183, 0.5), 0 0 40px rgba(255, 79, 177, 0.3);
+                }
+                50% {
+                    box-shadow: 0 4px 35px rgba(255, 111, 183, 0.7), 0 0 60px rgba(255, 79, 177, 0.5);
+                }
+            }
+
+            @keyframes celebrate {
+                0% { transform: scale(1); }
+                25% { transform: scale(1.1) rotate(-3deg); }
+                50% { transform: scale(1.15) rotate(3deg); }
+                75% { transform: scale(1.1) rotate(-2deg); }
+                100% { transform: scale(1); }
+            }
+
+            #btn-goto-2026.celebrate {
+                animation: celebrate 0.6s ease-in-out;
+            }
+
+            #btn-back {
+                position: fixed;
+                top: calc(env(safe-area-inset-top) + 16px);
+                left: 16px;
+                z-index: 100;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 600;
+                border: none;
+                border-radius: 30px;
+                cursor: pointer;
+                font-family: inherit;
+                letter-spacing: 0.5px;
+                background: rgba(255, 255, 255, 0.15);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                color: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                transition: all 0.3s ease;
+                display: none;
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            #btn-back.visible {
+                display: block;
+                animation: slideIn 0.5s ease forwards;
+            }
+
+            #btn-back:hover {
+                background: rgba(255, 255, 255, 0.25);
+                transform: translateX(0) scale(1.05);
+                box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+
+            #btn-back:active {
+                transform: translateX(0) scale(0.98);
+            }
+
+            #btn-back::before {
+                content: '←';
+                margin-right: 8px;
+                font-size: 16px;
+            }
+
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
             }
         </style>
     </head>
     <body>
+        <button id="btn-back">返回</button>
         <div id="overlay">
             <div id="title"></div>
             <div id="subtitle"></div>
             <div id="hint"></div>
+            <div id="buttons-container">
+                <button id="btn-goto-2026" class="action-btn" disabled>
+                    <div class="progress-fill" id="progress-fill"></div>
+                    <span class="btn-text">去往2026</span>
+                </button>
+                <button id="btn-firework" class="action-btn">放烟花</button>
+            </div>
         </div>
         <script src="./src/main.ts" type="module"></script>
     </body>

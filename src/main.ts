@@ -457,6 +457,267 @@ function createTextSprite(
   return sprite;
 }
 
+// 高质量庆祝文字 - 修复压缩问题
+function createCelebrationText(
+  text: string,
+  options?: {
+    fontSize?: number;
+    color?: string;
+    strokeColor?: string;
+    glowColor?: string;
+    worldHeight?: number;
+  }
+): THREE.Sprite {
+  const fontSize = options?.fontSize ?? 100;
+  const color = options?.color ?? "#ffffff";
+  const strokeColor = options?.strokeColor ?? "#ff6fb7";
+  const glowColor = options?.glowColor ?? "rgba(255, 111, 183, 0.6)";
+  const targetWorldHeight = options?.worldHeight ?? 0.8;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas unavailable");
+
+  const dpr = 2;
+  const paddingX = fontSize * 0.6;
+  const paddingY = fontSize * 0.5;
+
+  const font = `700 ${fontSize}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+  ctx.font = font;
+  const metrics = ctx.measureText(text);
+
+  const textWidth = metrics.width;
+  const w = textWidth + paddingX * 2;
+  const h = fontSize * 1.4 + paddingY * 2;
+
+  canvas.width = Math.ceil(w * dpr);
+  canvas.height = Math.ceil(h * dpr);
+
+  ctx.scale(dpr, dpr);
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+
+  const x = w / 2;
+  const y = h / 2;
+
+  // 发光
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = fontSize * 0.15;
+
+  // 描边
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = fontSize * 0.03;
+  ctx.strokeText(text, x, y);
+
+  // 填充
+  ctx.shadowBlur = fontSize * 0.08;
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  const sprite = new THREE.Sprite(material);
+  sprite.renderOrder = 1000;
+  const aspect = w / h;
+  sprite.scale.set(targetWorldHeight * aspect, targetWorldHeight, 1);
+  return sprite;
+}
+
+// 创建3D星星装饰
+function createCelebStar(size: number, color: THREE.Color): THREE.Mesh {
+  const points = 5;
+  const outerR = size;
+  const innerR = size * 0.4;
+  const starShape = new THREE.Shape();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const a = -Math.PI * 0.5 + (i * Math.PI) / points;
+    const px = Math.cos(a) * r;
+    const py = Math.sin(a) * r;
+    if (i === 0) starShape.moveTo(px, py);
+    else starShape.lineTo(px, py);
+  }
+  starShape.closePath();
+
+  const geometry = new THREE.ExtrudeGeometry(starShape, {
+    depth: size * 0.12,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    bevelSize: size * 0.02,
+    bevelThickness: size * 0.02,
+  });
+  geometry.center();
+
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.6,
+    metalness: 0.4,
+    roughness: 0.3,
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+// 创建3D心形装饰
+function createCelebHeart(size: number, color: THREE.Color): THREE.Mesh {
+  const heartShape = new THREE.Shape();
+  heartShape.moveTo(0, 0.22);
+  heartShape.bezierCurveTo(0, 0.22, -0.25, -0.06, -0.48, 0.12);
+  heartShape.bezierCurveTo(-0.78, 0.36, -0.78, 0.78, -0.48, 0.98);
+  heartShape.bezierCurveTo(-0.2, 1.18, 0.15, 1.0, 0, 0.75);
+  heartShape.bezierCurveTo(0.15, 1.0, 0.5, 1.18, 0.78, 0.98);
+  heartShape.bezierCurveTo(1.08, 0.78, 1.08, 0.36, 0.78, 0.12);
+  heartShape.bezierCurveTo(0.55, -0.06, 0, 0.22, 0, 0.22);
+
+  const geometry = new THREE.ExtrudeGeometry(heartShape, {
+    depth: 0.15,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: 0.04,
+    bevelThickness: 0.04,
+  });
+  geometry.center();
+  geometry.scale(size, size, size);
+
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.7,
+    metalness: 0.2,
+    roughness: 0.25,
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+// 创建钻石装饰
+function createCelebGem(size: number, color: THREE.Color): THREE.Mesh {
+  const geometry = new THREE.OctahedronGeometry(size, 0);
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.5,
+    metalness: 0.1,
+    roughness: 0.15,
+  });
+  return new THREE.Mesh(geometry, material);
+}
+
+// 创建3D花瓣
+function createPetal(size: number, color: THREE.Color): THREE.Mesh {
+  // 花瓣形状：椭圆形拉伸
+  const petalShape = new THREE.Shape();
+  petalShape.moveTo(0, 0);
+  petalShape.quadraticCurveTo(size * 0.5, size * 0.3, size * 0.15, size);
+  petalShape.quadraticCurveTo(0, size * 1.1, -size * 0.15, size);
+  petalShape.quadraticCurveTo(-size * 0.5, size * 0.3, 0, 0);
+
+  const geometry = new THREE.ExtrudeGeometry(petalShape, {
+    depth: size * 0.02,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: size * 0.015,
+    bevelThickness: size * 0.01,
+  });
+  geometry.center();
+
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.4,
+    metalness: 0.1,
+    roughness: 0.4,
+    side: THREE.DoubleSide,
+  });
+
+  return new THREE.Mesh(geometry, material);
+}
+
+// 创建完整的3D花朵
+function create3DFlower(
+  size: number,
+  petalColor: THREE.Color,
+  centerColor: THREE.Color
+): THREE.Group {
+  const flower = new THREE.Group();
+
+  // 花瓣数量
+  const petalCount = 8;
+  for (let i = 0; i < petalCount; i++) {
+    const petal = createPetal(size, petalColor);
+    const angle = (i / petalCount) * Math.PI * 2;
+    petal.rotation.z = angle;
+    petal.rotation.x = Math.PI * 0.15; // 花瓣稍微向外倾斜
+    petal.position.set(
+      Math.cos(angle) * size * 0.1,
+      Math.sin(angle) * size * 0.1,
+      0
+    );
+    flower.add(petal);
+  }
+
+  // 第二层花瓣（内层，角度错开）
+  for (let i = 0; i < petalCount; i++) {
+    const petal = createPetal(
+      size * 0.7,
+      petalColor.clone().lerp(new THREE.Color("#ffffff"), 0.3)
+    );
+    const angle = (i / petalCount) * Math.PI * 2 + Math.PI / petalCount;
+    petal.rotation.z = angle;
+    petal.rotation.x = Math.PI * 0.25;
+    petal.position.set(
+      Math.cos(angle) * size * 0.05,
+      Math.sin(angle) * size * 0.05,
+      size * 0.02
+    );
+    flower.add(petal);
+  }
+
+  // 花蕊（中心）
+  const centerGeo = new THREE.SphereGeometry(size * 0.15, 16, 16);
+  const centerMat = new THREE.MeshStandardMaterial({
+    color: centerColor,
+    emissive: centerColor,
+    emissiveIntensity: 0.6,
+    metalness: 0.2,
+    roughness: 0.3,
+  });
+  const center = new THREE.Mesh(centerGeo, centerMat);
+  center.position.z = size * 0.03;
+  flower.add(center);
+
+  // 小花蕊点
+  for (let i = 0; i < 5; i++) {
+    const dotGeo = new THREE.SphereGeometry(size * 0.03, 8, 8);
+    const dotMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#ffd6a6"),
+      emissive: new THREE.Color("#ffd6a6"),
+      emissiveIntensity: 0.8,
+    });
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    const angle = (i / 5) * Math.PI * 2;
+    const radius = size * 0.08;
+    dot.position.set(
+      Math.cos(angle) * radius,
+      Math.sin(angle) * radius,
+      size * 0.05
+    );
+    flower.add(dot);
+  }
+
+  return flower;
+}
+
 function createTextPlane(
   text: string,
   options?: {
@@ -2379,6 +2640,196 @@ class PerformanceScaler {
 function main(): void {
   setupOverlay();
 
+  // ======== 底部按钮功能 ========
+  const btnGoto2026 =
+    document.querySelector<HTMLButtonElement>("#btn-goto-2026");
+  const btnFirework =
+    document.querySelector<HTMLButtonElement>("#btn-firework");
+  const progressFill = document.querySelector<HTMLDivElement>("#progress-fill");
+
+  let fireworkCount = 0;
+  const TARGET_FIREWORK_COUNT = 26;
+
+  function updateFireworkCounter(): void {
+    // 更新进度条填充
+    const progress = Math.min(
+      (fireworkCount / TARGET_FIREWORK_COUNT) * 100,
+      100
+    );
+    if (progressFill) {
+      progressFill.style.width = `${progress}%`;
+    }
+
+    // 达到26次后激活"去往2026"按钮
+    if (fireworkCount >= TARGET_FIREWORK_COUNT && btnGoto2026) {
+      btnGoto2026.disabled = false;
+      btnGoto2026.classList.add("active");
+
+      // 播放庆祝动画
+      btnGoto2026.classList.add("celebrate");
+      setTimeout(() => {
+        btnGoto2026.classList.remove("celebrate");
+      }, 600);
+    }
+  }
+
+  // ======== 场景切换状态 ========
+  type ScenePhase = "countdown" | "transition" | "celebration";
+  let scenePhase: ScenePhase = "countdown";
+  let transitionProgress = 0;
+  let celebrationStartTime = 0;
+  let celebrationFireworkTimer = 0;
+
+  // 新年祝福文字（将在切换后创建）
+  let newYearSprite: THREE.Sprite | null = null;
+  let wishSprite2: THREE.Sprite | null = null;
+  let wishSprite3: THREE.Sprite | null = null;
+
+  // 返回按钮
+  const btnBack = document.querySelector<HTMLButtonElement>("#btn-back");
+
+  // 存储新场景创建的对象，便于返回时清理
+  let celebrationObjects: THREE.Object3D[] = [];
+
+  // 场景切换函数
+  function startSceneTransition(): void {
+    if (scenePhase !== "countdown") return;
+    scenePhase = "transition";
+    transitionProgress = 0;
+
+    // 隐藏按钮容器
+    const buttonsContainer =
+      document.querySelector<HTMLDivElement>("#buttons-container");
+    if (buttonsContainer) {
+      buttonsContainer.style.transition = "opacity 0.5s ease";
+      buttonsContainer.style.opacity = "0";
+      buttonsContainer.style.pointerEvents = "none";
+    }
+
+    // 隐藏提示文字
+    const hint = document.querySelector<HTMLDivElement>("#hint");
+    if (hint) {
+      hint.style.transition = "opacity 0.5s ease";
+      hint.style.opacity = "0";
+    }
+
+    // 尝试开启音乐
+    bgm.start();
+  }
+
+  // "去往2026"按钮点击事件
+  if (btnGoto2026) {
+    btnGoto2026.addEventListener("click", () => {
+      if (fireworkCount >= TARGET_FIREWORK_COUNT) {
+        startSceneTransition();
+      }
+    });
+  }
+
+  // 返回初始场景的函数
+  function returnToCountdown(): void {
+    if (scenePhase !== "celebration") return;
+
+    // 隐藏返回按钮
+    if (btnBack) {
+      btnBack.classList.remove("visible");
+    }
+
+    // 清理新场景创建的对象
+    celebrationObjects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry?.dispose();
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach((m) => m.dispose());
+        } else {
+          obj.material?.dispose();
+        }
+      }
+    });
+    celebrationObjects = [];
+
+    // 清理window上存储的引用
+    delete (window as any).__flowersGroup;
+    delete (window as any).__decorGroup;
+    delete (window as any).__torusRing;
+    delete (window as any).__torusRing2;
+
+    // 重置祝福文字
+    if (newYearSprite) {
+      scene.remove(newYearSprite);
+      newYearSprite = null;
+    }
+    if (wishSprite2) {
+      scene.remove(wishSprite2);
+      wishSprite2 = null;
+    }
+    if (wishSprite3) {
+      scene.remove(wishSprite3);
+      wishSprite3 = null;
+    }
+
+    // 恢复场景阶段
+    scenePhase = "countdown";
+    transitionProgress = 0;
+
+    // 恢复原始场景元素可见性和透明度
+    motif.visible = true;
+    motif.scale.setScalar(1);
+    ring.visible = true;
+    ring.material.opacity = 0.5;
+    titleSprite.visible = true;
+    (titleSprite.material as THREE.SpriteMaterial).opacity = 1;
+    wishSprite.visible = true;
+    (wishSprite.material as THREE.SpriteMaterial).opacity = 1;
+    subSprite.visible = true;
+    (subSprite.material as THREE.SpriteMaterial).opacity = 0.85;
+
+    // 恢复摄像机位置
+    camera.position.set(0, 3.2, 6.2);
+    camera.lookAt(0, 1.8, 0);
+
+    // 恢复场景氛围
+    scene.fog = new THREE.Fog(new THREE.Color("#050512"), 6.0, 28.0);
+    renderer.setClearColor(new THREE.Color("#050512"), 1);
+
+    // 恢复HTML覆盖层
+    const titleEl = document.querySelector<HTMLDivElement>("#title");
+    const subtitleEl = document.querySelector<HTMLDivElement>("#subtitle");
+    const buttonsContainer =
+      document.querySelector<HTMLDivElement>("#buttons-container");
+    const hint = document.querySelector<HTMLDivElement>("#hint");
+
+    if (titleEl) {
+      titleEl.style.display = "";
+      titleEl.style.opacity = "1";
+    }
+    if (subtitleEl) {
+      subtitleEl.style.display = "";
+      subtitleEl.style.opacity = "1";
+    }
+    if (buttonsContainer) {
+      buttonsContainer.style.transition = "opacity 0.5s ease";
+      buttonsContainer.style.opacity = "1";
+      buttonsContainer.style.pointerEvents = "auto";
+    }
+    if (hint) {
+      hint.style.transition = "opacity 0.5s ease";
+      hint.style.opacity = "1";
+    }
+
+    // 重置烟花计数
+    fireworkCount = 0;
+    updateFireworkCounter();
+  }
+
+  // 返回按钮点击事件
+  if (btnBack) {
+    btnBack.addEventListener("click", () => {
+      returnToCountdown();
+    });
+  }
+
   const bgm = createBackgroundMusic(MUSIC_URL);
 
   const viewport = getViewportSize();
@@ -2701,7 +3152,7 @@ function main(): void {
     (world, _pattern, _intensity, userTriggered) => {
       if (!userTriggered) return;
 
-      // 轻微震动（若系统允许），增强“触感”但不打扰
+      // 轻微震动（若系统允许），增强"触感"但不打扰
       if (isMobile && "vibrate" in navigator) {
         try {
           (navigator as any).vibrate?.(14);
@@ -2713,6 +3164,40 @@ function main(): void {
       spawnFloatingNote(world, pickOne(LOVE_NOTES));
     }
   );
+
+  // 保存到 window 供按钮使用
+  (window as any).__happyRockets = rockets;
+
+  // "放烟花"按钮点击事件
+  if (btnFirework) {
+    btnFirework.addEventListener("click", () => {
+      // 尝试开启音乐
+      bgm.start();
+
+      // 放一次烟花
+      const origin = new THREE.Vector3(
+        rand(-3, 3),
+        rand(2.5, 4.5),
+        rand(-2.5, 2.5)
+      );
+      rockets.launch(
+        new THREE.Vector3(origin.x, 0, origin.z),
+        rand(0.95, 1.15),
+        chooseFireworkPattern(true),
+        true
+      );
+
+      // 增加计数
+      fireworkCount++;
+      updateFireworkCounter();
+
+      // 按钮点击动效
+      btnFirework.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        btnFirework.style.transform = "";
+      }, 100);
+    });
+  }
 
   // Angle phrases: rotate to reveal different lines
   const phraseRing = new AnglePhraseRing({
@@ -2968,14 +3453,13 @@ function main(): void {
         dx * dx + dy * dy <= tapMoveThreshold * 2 * (tapMoveThreshold * 2);
       const fast = ms - doubleTap.lastMs <= doubleTapMaxDelayMs;
 
-      if (doubleTap.lastMs > 0 && fast && near) {
-        doubleTap.lastMs = 0;
-
-        // 双击放烟花时尝试开启音乐（用户手势）
-        bgm.start();
-        spawnAtScreen(e.clientX, e.clientY);
-        return;
-      }
+      // 双击放烟花功能已禁用，只能通过底部按钮放烟花
+      // if (doubleTap.lastMs > 0 && fast && near) {
+      //   doubleTap.lastMs = 0;
+      //   bgm.start();
+      //   spawnAtScreen(e.clientX, e.clientY);
+      //   return;
+      // }
 
       doubleTap.lastMs = ms;
       doubleTap.lastX = e.clientX;
@@ -3014,22 +3498,22 @@ function main(): void {
     );
   }
 
-  // Periodic fireworks
-  let autoTimer = 0;
-  function spawnAuto(): void {
-    const origin = new THREE.Vector3(
-      rand(-3.8, 3.8),
-      rand(2.2, 4.4),
-      rand(-3.2, 2.8)
-    );
-    rockets.launch(
-      new THREE.Vector3(origin.x, 0, origin.z),
-      rand(0.85, 1.15),
-      chooseFireworkPattern(false),
-      false
-    );
-  }
-  for (let i = 0; i < 3; i++) spawnAuto();
+  // 自动放烟花功能已禁用，只能通过底部按钮放烟花
+  // let autoTimer = 0;
+  // function spawnAuto(): void {
+  //   const origin = new THREE.Vector3(
+  //     rand(-3.8, 3.8),
+  //     rand(2.2, 4.4),
+  //     rand(-3.2, 2.8)
+  //   );
+  //   rockets.launch(
+  //     new THREE.Vector3(origin.x, 0, origin.z),
+  //     rand(0.85, 1.15),
+  //     chooseFireworkPattern(false),
+  //     false
+  //   );
+  // }
+  // for (let i = 0; i < 3; i++) spawnAuto();
 
   // Resize
   function onResize(): void {
@@ -3132,11 +3616,12 @@ function main(): void {
     rockets.update(dt);
     phraseRing.update(camera, t);
 
-    autoTimer -= dt;
-    if (autoTimer <= 0) {
-      autoTimer = rand(0.75, 1.35);
-      spawnAuto();
-    }
+    // 自动放烟花功能已禁用
+    // autoTimer -= dt;
+    // if (autoTimer <= 0) {
+    //   autoTimer = rand(0.75, 1.35);
+    //   spawnAuto();
+    // }
     fireworks.update(dt);
 
     // Floating notes - 在固定区域内竖直慢慢往上飘
@@ -3200,6 +3685,574 @@ function main(): void {
         r.mesh.geometry.dispose();
         (r.mesh.material as THREE.Material).dispose();
         ripples.splice(i, 1);
+      }
+    }
+
+    // ======== 场景切换动画 ========
+    if (scenePhase === "transition") {
+      transitionProgress += dt * 0.5; // 约2秒完成过渡
+      const p = smoothstep(0, 1, Math.min(transitionProgress, 1));
+
+      // 保存初始摄像机位置（只在开始时记录）
+      if (transitionProgress < dt * 2) {
+        (camera as any).__transitionStartPos = camera.position.clone();
+        (camera as any).__transitionStartLookAt = new THREE.Vector3(0, 1.1, 0);
+      }
+
+      const startPos =
+        (camera as any).__transitionStartPos || camera.position.clone();
+
+      // 目标位置：先向上飞，再向前靠近新场景中心
+      const phase1End = 0.5; // 前半段向上飞
+
+      let targetPos: THREE.Vector3;
+      let targetLookAt: THREE.Vector3;
+
+      if (p < phase1End) {
+        // 阶段1：向上飞升，穿过云层的感觉
+        const p1 = p / phase1End;
+        const smoothP1 = smoothstep(0, 1, p1);
+        targetPos = new THREE.Vector3(
+          lerp(startPos.x, 0, smoothP1 * 0.5),
+          lerp(startPos.y, 15, smoothP1),
+          lerp(startPos.z, startPos.z + 5, smoothP1)
+        );
+        targetLookAt = new THREE.Vector3(0, lerp(1.1, 8, smoothP1), 0);
+      } else {
+        // 阶段2：向前俯冲进入新场景
+        const p2 = (p - phase1End) / (1 - phase1End);
+        const smoothP2 = smoothstep(0, 1, p2);
+        targetPos = new THREE.Vector3(
+          lerp(0, 0, smoothP2),
+          lerp(15, 3.5, smoothP2),
+          lerp(startPos.z + 5, 8, smoothP2)
+        );
+        targetLookAt = new THREE.Vector3(0, lerp(8, 2.5, smoothP2), 0);
+      }
+
+      // 平滑插值摄像机位置
+      camera.position.lerp(targetPos, 0.08);
+      const currentLookAt = new THREE.Vector3();
+      camera.getWorldDirection(currentLookAt);
+      camera.lookAt(targetLookAt);
+
+      // 淡出旧场景元素
+      const fadeOut = 1 - smoothstep(0, 0.4, p);
+      (titleSprite.material as THREE.SpriteMaterial).opacity = fadeOut;
+      (wishSprite.material as THREE.SpriteMaterial).opacity = fadeOut;
+      (subSprite.material as THREE.SpriteMaterial).opacity = fadeOut;
+      motif.scale.setScalar(layoutMotifScale * fadeOut);
+      ring.material.opacity = 0.5 * fadeOut;
+
+      // 更新 HTML overlay
+      const titleEl = document.querySelector<HTMLDivElement>("#title");
+      const subtitleEl = document.querySelector<HTMLDivElement>("#subtitle");
+      if (titleEl) titleEl.style.opacity = String(fadeOut);
+      if (subtitleEl) subtitleEl.style.opacity = String(fadeOut);
+
+      // 过渡完成，进入庆祝阶段
+      if (transitionProgress >= 1) {
+        scenePhase = "celebration";
+        celebrationStartTime = t;
+        celebrationFireworkTimer = 0;
+
+        // 设置摄像机到最终位置 - 正对文字
+        camera.position.set(0, 2.2, 6.5);
+        camera.lookAt(0, 2.0, 0);
+        controls.setAutoSpin(false);
+
+        // 隐藏旧元素
+        motif.visible = false;
+        ring.visible = false;
+        titleSprite.visible = false;
+        wishSprite.visible = false;
+        subSprite.visible = false;
+        phraseRing.object3d().visible = false;
+
+        // 清除所有浮动祝福语
+        for (const n of floatingNotes) {
+          scene.remove(n.sprite);
+          const mat = n.sprite.material as THREE.SpriteMaterial;
+          mat.map?.dispose();
+          mat.dispose();
+        }
+        floatingNotes.length = 0;
+        usedSlots.clear();
+
+        // ===== 创建丰富的3D新场景 =====
+
+        // 显示返回按钮
+        if (btnBack) {
+          btnBack.classList.add("visible");
+        }
+
+        // 隐藏 HTML overlay
+        if (titleEl) titleEl.style.display = "none";
+        if (subtitleEl) subtitleEl.style.display = "none";
+
+        // 增强灯光
+        const celebLight1 = new THREE.PointLight(
+          new THREE.Color("#ff6fb7"),
+          2,
+          15
+        );
+        celebLight1.position.set(-3, 3, 2);
+        scene.add(celebLight1);
+        celebrationObjects.push(celebLight1);
+
+        const celebLight2 = new THREE.PointLight(
+          new THREE.Color("#77d6ff"),
+          2,
+          15
+        );
+        celebLight2.position.set(3, 3, 2);
+        scene.add(celebLight2);
+        celebrationObjects.push(celebLight2);
+
+        const celebLight3 = new THREE.PointLight(
+          new THREE.Color("#ffd6a6"),
+          1.5,
+          12
+        );
+        celebLight3.position.set(0, 4, 3);
+        scene.add(celebLight3);
+        celebrationObjects.push(celebLight3);
+
+        // ===== 3D装饰物组 =====
+        const decorGroup = new THREE.Group();
+        scene.add(decorGroup);
+        celebrationObjects.push(decorGroup);
+        (window as any).__decorGroup = decorGroup;
+
+        // 左侧：3D星星群
+        for (let i = 0; i < 5; i++) {
+          const star = createCelebStar(
+            0.15 + rand(0, 0.1),
+            new THREE.Color("#ffd6a6")
+          );
+          star.position.set(
+            -3 - rand(0, 1.5),
+            1.5 + i * 0.6 + rand(-0.2, 0.2),
+            rand(-0.5, 0.5)
+          );
+          star.rotation.set(
+            rand(0, Math.PI),
+            rand(0, Math.PI),
+            rand(0, Math.PI)
+          );
+          decorGroup.add(star);
+        }
+
+        // 右侧：3D星星群
+        for (let i = 0; i < 5; i++) {
+          const star = createCelebStar(
+            0.15 + rand(0, 0.1),
+            new THREE.Color("#a9e8ff")
+          );
+          star.position.set(
+            3 + rand(0, 1.5),
+            1.5 + i * 0.6 + rand(-0.2, 0.2),
+            rand(-0.5, 0.5)
+          );
+          star.rotation.set(
+            rand(0, Math.PI),
+            rand(0, Math.PI),
+            rand(0, Math.PI)
+          );
+          decorGroup.add(star);
+        }
+
+        // 3D心形装饰
+        const heart1 = createCelebHeart(0.25, new THREE.Color("#ff6fb7"));
+        heart1.position.set(-2.5, 3.2, 0.3);
+        heart1.rotation.z = 0.2;
+        decorGroup.add(heart1);
+
+        const heart2 = createCelebHeart(0.18, new THREE.Color("#ff4fb1"));
+        heart2.position.set(2.8, 2.8, 0.2);
+        heart2.rotation.z = -0.15;
+        decorGroup.add(heart2);
+
+        const heart3 = createCelebHeart(0.12, new THREE.Color("#ffd6f2"));
+        heart3.position.set(-1.8, 0.6, 0.4);
+        heart3.rotation.z = 0.3;
+        decorGroup.add(heart3);
+
+        // 3D钻石/宝石装饰
+        const gem1 = createCelebGem(0.12, new THREE.Color("#77d6ff"));
+        gem1.position.set(2.2, 3.5, 0.5);
+        decorGroup.add(gem1);
+
+        const gem2 = createCelebGem(0.1, new THREE.Color("#cbbcff"));
+        gem2.position.set(-2.0, 2.5, 0.3);
+        decorGroup.add(gem2);
+
+        const gem3 = createCelebGem(0.08, new THREE.Color("#b7ffd6"));
+        gem3.position.set(1.5, 0.8, 0.4);
+        decorGroup.add(gem3);
+
+        // 中心发光托勒斯环
+        const torusRing = new THREE.Mesh(
+          new THREE.TorusGeometry(1.8, 0.03, 16, 100),
+          new THREE.MeshStandardMaterial({
+            color: new THREE.Color("#ff6fb7"),
+            emissive: new THREE.Color("#ff6fb7"),
+            emissiveIntensity: 0.8,
+            metalness: 0.5,
+            roughness: 0.3,
+          })
+        );
+        torusRing.position.set(0, 1.8, -0.3);
+        torusRing.rotation.x = Math.PI * 0.5;
+        decorGroup.add(torusRing);
+        (window as any).__torusRing = torusRing;
+
+        // 第二个环
+        const torusRing2 = new THREE.Mesh(
+          new THREE.TorusGeometry(2.2, 0.02, 16, 100),
+          new THREE.MeshStandardMaterial({
+            color: new THREE.Color("#77d6ff"),
+            emissive: new THREE.Color("#77d6ff"),
+            emissiveIntensity: 0.6,
+            metalness: 0.5,
+            roughness: 0.3,
+          })
+        );
+        torusRing2.position.set(0, 1.8, -0.3);
+        torusRing2.rotation.x = Math.PI * 0.5;
+        decorGroup.add(torusRing2);
+        (window as any).__torusRing2 = torusRing2;
+
+        // 主标题 - 更大更清晰
+        newYearSprite = createCelebrationText("2026 元旦快乐", {
+          fontSize: isMobile ? 80 : 100,
+          color: "#ffffff",
+          strokeColor: "#ff6fb7",
+          glowColor: "rgba(255, 111, 183, 0.6)",
+          worldHeight: isMobile ? 1.0 : 1.3,
+        });
+        newYearSprite.position.set(0, 2.8, 0);
+        (newYearSprite.material as THREE.SpriteMaterial).opacity = 0;
+        scene.add(newYearSprite);
+
+        // 副标题
+        wishSprite2 = createCelebrationText("新的一年 愿你万事胜意", {
+          fontSize: isMobile ? 48 : 60,
+          color: "#ffffff",
+          strokeColor: "#cbbcff",
+          glowColor: "rgba(203, 188, 255, 0.5)",
+          worldHeight: isMobile ? 0.7 : 0.9,
+        });
+        wishSprite2.position.set(0, 1.8, 0);
+        (wishSprite2.material as THREE.SpriteMaterial).opacity = 0;
+        scene.add(wishSprite2);
+
+        // 第三行
+        wishSprite3 = createCelebrationText("愿你被世界温柔以待", {
+          fontSize: isMobile ? 42 : 52,
+          color: "#ffffff",
+          strokeColor: "#77d6ff",
+          glowColor: "rgba(119, 214, 255, 0.5)",
+          worldHeight: isMobile ? 0.6 : 0.75,
+        });
+        wishSprite3.position.set(0, 0.9, 0);
+        (wishSprite3.material as THREE.SpriteMaterial).opacity = 0;
+        scene.add(wishSprite3);
+
+        // 场景氛围
+        scene.fog = new THREE.Fog(new THREE.Color("#030308"), 8.0, 30.0);
+        renderer.setClearColor(new THREE.Color("#030308"), 1);
+
+        // ===== 底部3D浪漫花开效果 =====
+        const flowersGroup = new THREE.Group();
+        flowersGroup.position.set(0, -0.5, 0);
+        scene.add(flowersGroup);
+        celebrationObjects.push(flowersGroup);
+        (window as any).__flowersGroup = flowersGroup;
+
+        // 创建多朵花，分布在底部
+        const flowerColors = [
+          {
+            petal: new THREE.Color("#ff6fb7"),
+            center: new THREE.Color("#ffd6a6"),
+          },
+          {
+            petal: new THREE.Color("#ff4fb1"),
+            center: new THREE.Color("#ffb6c1"),
+          },
+          {
+            petal: new THREE.Color("#ffd6f2"),
+            center: new THREE.Color("#ffd6a6"),
+          },
+          {
+            petal: new THREE.Color("#cbbcff"),
+            center: new THREE.Color("#ffffff"),
+          },
+          {
+            petal: new THREE.Color("#a9e8ff"),
+            center: new THREE.Color("#ffd6a6"),
+          },
+        ];
+
+        // 中央大花
+        const mainFlower = create3DFlower(
+          0.5,
+          flowerColors[0].petal,
+          flowerColors[0].center
+        );
+        mainFlower.position.set(0, 0, 0.5);
+        mainFlower.rotation.x = -Math.PI * 0.3;
+        mainFlower.scale.setScalar(0.01); // 开始时很小
+        flowersGroup.add(mainFlower);
+
+        // 左右两侧的花
+        for (let i = 0; i < 4; i++) {
+          const colorIdx = (i + 1) % flowerColors.length;
+          const flower = create3DFlower(
+            0.3 + rand(0, 0.15),
+            flowerColors[colorIdx].petal,
+            flowerColors[colorIdx].center
+          );
+          const side = i % 2 === 0 ? -1 : 1;
+          const xOffset = (Math.floor(i / 2) + 1) * 1.2;
+          flower.position.set(
+            side * xOffset + rand(-0.2, 0.2),
+            rand(-0.3, 0.2),
+            rand(0.3, 0.8)
+          );
+          flower.rotation.x = -Math.PI * 0.25 + rand(-0.1, 0.1);
+          flower.rotation.z = rand(-0.2, 0.2);
+          flower.scale.setScalar(0.01);
+          flowersGroup.add(flower);
+        }
+
+        // 更多小花点缀
+        for (let i = 0; i < 6; i++) {
+          const colorIdx = randInt(0, flowerColors.length - 1);
+          const flower = create3DFlower(
+            0.15 + rand(0, 0.1),
+            flowerColors[colorIdx].petal,
+            flowerColors[colorIdx].center
+          );
+          flower.position.set(rand(-3.5, 3.5), rand(-0.5, 0), rand(0, 0.6));
+          flower.rotation.x = -Math.PI * 0.2 + rand(-0.15, 0.15);
+          flower.rotation.z = rand(-0.3, 0.3);
+          flower.scale.setScalar(0.01);
+          flowersGroup.add(flower);
+        }
+
+        // 立即放一大波烟花庆祝
+        for (let i = 0; i < 15; i++) {
+          setTimeout(() => {
+            const angle = (i / 15) * Math.PI * 2;
+            const radius = rand(3, 6);
+            const origin = new THREE.Vector3(
+              Math.cos(angle) * radius,
+              rand(4, 7),
+              Math.sin(angle) * radius * 0.5
+            );
+            rockets.launch(
+              new THREE.Vector3(origin.x, 0, origin.z),
+              rand(1.0, 1.4),
+              chooseFireworkPattern(true),
+              true
+            );
+          }, i * 120);
+        }
+      }
+    }
+
+    // ======== 庆祝阶段动画 ========
+    if (scenePhase === "celebration") {
+      const celebTime = t - celebrationStartTime;
+
+      // 摄像机：稳定正对，轻微呼吸感
+      const targetY = 1.8 + Math.sin(celebTime * 0.35) * 0.08;
+      const targetZ = 5.0 + Math.sin(celebTime * 0.25) * 0.15;
+
+      camera.position.x = lerp(camera.position.x, 0, 0.04);
+      camera.position.y = lerp(camera.position.y, targetY, 0.04);
+      camera.position.z = lerp(camera.position.z, targetZ, 0.04);
+      camera.lookAt(0, 1.6, 0);
+
+      // 3D装饰物动画
+      const decorGroup = (window as any).__decorGroup as
+        | THREE.Group
+        | undefined;
+      const torusRing = (window as any).__torusRing as THREE.Mesh | undefined;
+      const torusRing2 = (window as any).__torusRing2 as THREE.Mesh | undefined;
+
+      if (decorGroup) {
+        decorGroup.children.forEach((child, i) => {
+          if (
+            child instanceof THREE.Mesh &&
+            child !== torusRing &&
+            child !== torusRing2
+          ) {
+            child.rotation.y += dt * (0.4 + i * 0.03);
+            child.rotation.x += dt * 0.15;
+          }
+        });
+      }
+
+      if (torusRing) {
+        torusRing.rotation.z = celebTime * 0.25;
+        const pulse = 1 + Math.sin(celebTime * 1.8) * 0.03;
+        torusRing.scale.setScalar(pulse);
+      }
+      if (torusRing2) {
+        torusRing2.rotation.z = -celebTime * 0.18;
+        const pulse = 1 + Math.sin(celebTime * 1.4 + 1) * 0.025;
+        torusRing2.scale.setScalar(pulse);
+      }
+
+      // 花朵绽放动画
+      const flowersGroup = (window as any).__flowersGroup as
+        | THREE.Group
+        | undefined;
+      if (flowersGroup) {
+        flowersGroup.children.forEach((flower, i) => {
+          // 依次绽放动画
+          const bloomDelay = 0.3 + i * 0.15;
+          const bloomDuration = 1.2;
+          const bloomProgress = smoothstep(
+            0,
+            1,
+            (celebTime - bloomDelay) / bloomDuration
+          );
+
+          // 从小变大（绽放效果）
+          const targetScale = i === 0 ? 1.0 : 0.6 + (i % 3) * 0.15;
+          flower.scale.setScalar(bloomProgress * targetScale);
+
+          // 轻微旋转
+          flower.rotation.z += dt * 0.1 * (i % 2 === 0 ? 1 : -1);
+
+          // 轻微浮动
+          flower.position.y += Math.sin(celebTime * 1.2 + i * 0.7) * 0.0008;
+        });
+      }
+
+      // 主标题动画
+      if (newYearSprite) {
+        const entryDelay = 0.1;
+        const entryDuration = 0.6;
+        const entryProgress = smoothstep(
+          0,
+          1,
+          (celebTime - entryDelay) / entryDuration
+        );
+        const startY = 3.8;
+        const endY = 2.8;
+        newYearSprite.position.y =
+          lerp(startY, endY, entryProgress) + Math.sin(celebTime * 0.8) * 0.01;
+        (newYearSprite.material as THREE.SpriteMaterial).opacity =
+          entryProgress;
+      }
+
+      // 第二行祝福
+      if (wishSprite2) {
+        const entryDelay = 0.4;
+        const entryDuration = 0.5;
+        const entryProgress = smoothstep(
+          0,
+          1,
+          (celebTime - entryDelay) / entryDuration
+        );
+        const startY = 2.4;
+        const endY = 1.8;
+        wishSprite2.position.y =
+          lerp(startY, endY, entryProgress) +
+          Math.sin(celebTime * 0.7 + 1) * 0.008;
+        (wishSprite2.material as THREE.SpriteMaterial).opacity = entryProgress;
+      }
+
+      // 第三行祝福
+      if (wishSprite3) {
+        const entryDelay = 0.7;
+        const entryDuration = 0.5;
+        const entryProgress = smoothstep(
+          0,
+          1,
+          (celebTime - entryDelay) / entryDuration
+        );
+        const startY = 1.4;
+        const endY = 0.9;
+        wishSprite3.position.y =
+          lerp(startY, endY, entryProgress) +
+          Math.sin(celebTime * 0.6 + 2) * 0.008;
+        (wishSprite3.material as THREE.SpriteMaterial).opacity =
+          entryProgress * 0.95;
+      }
+
+      // 持续放丰富烟花
+      celebrationFireworkTimer -= dt;
+      if (celebrationFireworkTimer <= 0) {
+        celebrationFireworkTimer = rand(0.15, 0.35); // 更频繁
+
+        // 多种发射位置模式
+        const pattern = randInt(0, 3);
+        let origin: THREE.Vector3;
+
+        if (pattern === 0) {
+          // 左右两侧
+          const side = Math.random() > 0.5 ? 1 : -1;
+          origin = new THREE.Vector3(
+            side * rand(3, 6),
+            rand(3, 6),
+            rand(-2, 2)
+          );
+        } else if (pattern === 1) {
+          // 环形分布
+          const angle = Math.random() * Math.PI * 2;
+          const radius = rand(3, 5);
+          origin = new THREE.Vector3(
+            Math.cos(angle) * radius,
+            rand(4, 7),
+            Math.sin(angle) * radius * 0.5
+          );
+        } else if (pattern === 2) {
+          // 斜角发射
+          origin = new THREE.Vector3(rand(-5, 5), rand(2, 5), rand(-3, 0));
+        } else {
+          // 远处高空
+          origin = new THREE.Vector3(rand(-4, 4), rand(5, 8), rand(-4, -1));
+        }
+
+        rockets.launch(
+          new THREE.Vector3(origin.x, 0, origin.z),
+          rand(0.8, 1.3),
+          chooseFireworkPattern(true),
+          true
+        );
+
+        // 25%概率同时发射第二发
+        if (Math.random() < 0.25) {
+          const side2 = Math.random() > 0.5 ? 1 : -1;
+          setTimeout(() => {
+            rockets.launch(
+              new THREE.Vector3(side2 * rand(2, 5), 0, rand(-2, 2)),
+              rand(0.9, 1.2),
+              chooseFireworkPattern(true),
+              true
+            );
+          }, rand(50, 150));
+        }
+
+        // 15%概率三连发
+        if (Math.random() < 0.15) {
+          for (let burst = 0; burst < 3; burst++) {
+            setTimeout(() => {
+              const angle = (burst / 3) * Math.PI * 2 + Math.random() * 0.5;
+              rockets.launch(
+                new THREE.Vector3(Math.cos(angle) * 3, 0, Math.sin(angle) * 2),
+                rand(0.8, 1.1),
+                chooseFireworkPattern(true),
+                true
+              );
+            }, burst * 100);
+          }
+        }
       }
     }
 
