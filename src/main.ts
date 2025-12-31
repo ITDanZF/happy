@@ -2246,9 +2246,9 @@ class FireworkRockets implements Disposable {
 
     const start = new THREE.Vector3(targetXZ.x, -0.8, targetXZ.z);
     const end = new THREE.Vector3(
-      targetXZ.x + rand(-0.25, 0.25),
-      rand(2.8, 5.2),
-      targetXZ.z + rand(-0.25, 0.25)
+      targetXZ.x * 0.7 + rand(-0.15, 0.15),
+      rand(2.2, 3.8),
+      targetXZ.z * 0.7 + rand(-0.15, 0.15)
     );
 
     // 火星颜色 - 亮橙/金/白色调
@@ -3174,11 +3174,11 @@ function main(): void {
       // 尝试开启音乐
       bgm.start();
 
-      // 放一次烟花
+      // 放一次烟花（范围收紧，确保在屏幕内绽放）
       const origin = new THREE.Vector3(
-        rand(-3, 3),
-        rand(2.5, 4.5),
-        rand(-2.5, 2.5)
+        rand(-2, 2),
+        rand(2.2, 3.5),
+        rand(-1.5, 1.5)
       );
       rockets.launch(
         new THREE.Vector3(origin.x, 0, origin.z),
@@ -3277,9 +3277,9 @@ function main(): void {
     }
 
     const origin = new THREE.Vector3(
-      has ? clamp(hit.x, -5, 5) : rand(-2, 2),
-      rand(2.0, 4.2),
-      has ? clamp(hit.z, -5, 5) : rand(-2, 2)
+      has ? clamp(hit.x, -2.5, 2.5) : rand(-1.5, 1.5),
+      rand(2.0, 3.5),
+      has ? clamp(hit.z, -2, 2) : rand(-1.5, 1.5)
     );
     rockets.launch(
       new THREE.Vector3(origin.x, 0, origin.z),
@@ -4041,15 +4041,15 @@ function main(): void {
           flowersGroup.add(flower);
         }
 
-        // 立即放一大波烟花庆祝
+        // 立即放一大波烟花庆祝（收紧范围确保在屏幕内）
         for (let i = 0; i < 15; i++) {
           setTimeout(() => {
             const angle = (i / 15) * Math.PI * 2;
-            const radius = rand(3, 6);
+            const radius = rand(1.5, 3);
             const origin = new THREE.Vector3(
               Math.cos(angle) * radius,
-              rand(4, 7),
-              Math.sin(angle) * radius * 0.5
+              rand(2.5, 4),
+              Math.sin(angle) * radius * 0.4
             );
             rockets.launch(
               new THREE.Vector3(origin.x, 0, origin.z),
@@ -4190,7 +4190,7 @@ function main(): void {
       if (celebrationFireworkTimer <= 0) {
         celebrationFireworkTimer = rand(0.15, 0.35); // 更频繁
 
-        // 多种发射位置模式
+        // 多种发射位置模式（收紧范围，确保在屏幕内绽放）
         const pattern = randInt(0, 3);
         let origin: THREE.Vector3;
 
@@ -4198,25 +4198,29 @@ function main(): void {
           // 左右两侧
           const side = Math.random() > 0.5 ? 1 : -1;
           origin = new THREE.Vector3(
-            side * rand(3, 6),
-            rand(3, 6),
-            rand(-2, 2)
+            side * rand(1.5, 3),
+            rand(2.5, 4),
+            rand(-1, 1)
           );
         } else if (pattern === 1) {
           // 环形分布
           const angle = Math.random() * Math.PI * 2;
-          const radius = rand(3, 5);
+          const radius = rand(1.5, 2.5);
           origin = new THREE.Vector3(
             Math.cos(angle) * radius,
-            rand(4, 7),
-            Math.sin(angle) * radius * 0.5
+            rand(2.5, 4),
+            Math.sin(angle) * radius * 0.4
           );
         } else if (pattern === 2) {
           // 斜角发射
-          origin = new THREE.Vector3(rand(-5, 5), rand(2, 5), rand(-3, 0));
+          origin = new THREE.Vector3(
+            rand(-2.5, 2.5),
+            rand(2, 3.5),
+            rand(-1.5, 0)
+          );
         } else {
           // 远处高空
-          origin = new THREE.Vector3(rand(-4, 4), rand(5, 8), rand(-4, -1));
+          origin = new THREE.Vector3(rand(-2, 2), rand(3, 4.5), rand(-2, -0.5));
         }
 
         rockets.launch(
@@ -4231,7 +4235,7 @@ function main(): void {
           const side2 = Math.random() > 0.5 ? 1 : -1;
           setTimeout(() => {
             rockets.launch(
-              new THREE.Vector3(side2 * rand(2, 5), 0, rand(-2, 2)),
+              new THREE.Vector3(side2 * rand(1.2, 2.5), 0, rand(-1, 1)),
               rand(0.9, 1.2),
               chooseFireworkPattern(true),
               true
@@ -4245,7 +4249,11 @@ function main(): void {
             setTimeout(() => {
               const angle = (burst / 3) * Math.PI * 2 + Math.random() * 0.5;
               rockets.launch(
-                new THREE.Vector3(Math.cos(angle) * 3, 0, Math.sin(angle) * 2),
+                new THREE.Vector3(
+                  Math.cos(angle) * 1.8,
+                  0,
+                  Math.sin(angle) * 1.2
+                ),
                 rand(0.8, 1.1),
                 chooseFireworkPattern(true),
                 true
