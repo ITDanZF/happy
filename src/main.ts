@@ -1748,6 +1748,7 @@ class Fireworks implements Disposable {
     });
 
     const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false; // 防止烟花扩散后被视锥剔除
     this.scene.add(points);
 
     this.bursts.push({
@@ -1885,6 +1886,7 @@ class Fireworks implements Disposable {
     });
 
     const points = new THREE.Points(geometry, material);
+    points.frustumCulled = false; // 防止烟花扩散后被视锥剔除
     this.scene.add(points);
 
     this.bursts.push({
@@ -2237,11 +2239,22 @@ class FireworkRockets implements Disposable {
     targetXZ: THREE.Vector3,
     intensity = 1.0,
     pattern: FireworkPattern = "sphere",
-    userTriggered = false
+    userTriggered = false,
+    fixedDuration?: number // 可选：固定飞行时间，用于齐发齐绽放
   ): void {
     if (this.rockets.length >= this.maxRockets) {
       const old = this.rockets.shift();
-      if (old) this.remove(old);
+      if (old) {
+        // 被挤掉的火箭也要绽放，不能浪费
+        this.onBurst?.(
+          old.end.clone(),
+          old.pattern,
+          old.intensity,
+          old.userTriggered
+        );
+        this.fireworks.spawn(old.end, old.intensity, old.pattern);
+        this.remove(old);
+      }
     }
 
     const start = new THREE.Vector3(targetXZ.x, -0.8, targetXZ.z);
@@ -2346,7 +2359,7 @@ class FireworkRockets implements Disposable {
       trailPositions,
       sparkParticles: [],
       age: 0,
-      duration: rand(0.7, 1.0),
+      duration: fixedDuration ?? rand(0.7, 1.0),
       start,
       end,
       intensity,
@@ -3148,7 +3161,7 @@ function main(): void {
   const rockets = new FireworkRockets(
     scene,
     fireworks,
-    isMobile ? 5 : 7,
+    isMobile ? 16 : 20, // 增大容量以支持初始齐发
     (world, _pattern, _intensity, userTriggered) => {
       if (!userTriggered) return;
 
@@ -4041,23 +4054,27 @@ function main(): void {
           flowersGroup.add(flower);
         }
 
-        // 立即放一大波烟花庆祝（收紧范围确保在屏幕内）
-        for (let i = 0; i < 15; i++) {
+        // 万箭齐发：同时升空、同时绽放
+        const salvoCount = 15;
+        const salvoDuration = 0.85; // 固定飞行时间，确保齐绽放
+        for (let i = 0; i < salvoCount; i++) {
+          const angle = (i / salvoCount) * Math.PI * 2;
+          const radius = rand(1.5, 3);
+          const origin = new THREE.Vector3(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius * 0.4
+          );
+          // 微小延迟让发射有层次感但基本同时
           setTimeout(() => {
-            const angle = (i / 15) * Math.PI * 2;
-            const radius = rand(1.5, 3);
-            const origin = new THREE.Vector3(
-              Math.cos(angle) * radius,
-              rand(2.5, 4),
-              Math.sin(angle) * radius * 0.4
-            );
             rockets.launch(
-              new THREE.Vector3(origin.x, 0, origin.z),
+              origin,
               rand(1.0, 1.4),
               chooseFireworkPattern(true),
-              true
+              true,
+              salvoDuration // 固定飞行时间
             );
-          }, i * 120);
+          }, i * 15); // 仅15ms间隔，几乎同时发射
         }
       }
     }
